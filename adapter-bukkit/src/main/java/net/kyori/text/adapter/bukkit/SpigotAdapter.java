@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import net.kyori.text.Component;
 import net.kyori.text.serializer.gson.GsonComponentSerializer;
+import net.kyori.text.title.Title;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.chat.ComponentSerializer;
@@ -119,6 +120,11 @@ final class SpigotAdapter implements Adapter {
       return;
     }
     send(viewers, component, (viewer, components) -> viewer.spigot().sendMessage(components));
+  }
+
+  @Override
+  public void sendTitle(final List<? extends CommandSender> viewers, final Title title) {
+    // TODO
   }
 
   @Override

@@ -26,6 +26,7 @@ package net.kyori.text.adapter.bukkit;
 import java.util.List;
 import net.kyori.text.Component;
 import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.text.title.Title;
 import org.bukkit.command.CommandSender;
 
 final class LegacyAdapter implements Adapter {
@@ -36,6 +37,11 @@ final class LegacyAdapter implements Adapter {
       viewer.sendMessage(legacy);
     }
     viewers.clear();
+  }
+
+  @Override
+  public void sendTitle(final List<? extends CommandSender> viewers, final Title title) {
+    // not supported
   }
 
   @Override

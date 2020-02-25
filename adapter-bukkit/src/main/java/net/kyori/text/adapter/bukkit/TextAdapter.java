@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import net.kyori.text.Component;
+import net.kyori.text.title.Title;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -56,6 +57,26 @@ public interface TextAdapter {
    */
   static void sendMessage(final @NonNull Iterable<? extends CommandSender> viewers, final @NonNull Component component) {
     TextAdapter0.sendComponent(viewers, component, false);
+  }
+
+  /**
+   * Sends {@code title} to the given {@code viewers.
+   *
+   * @param viewer the viewer to send the title to
+   * @param title the title
+   */
+  static void sendTitle(final @NonNull CommandSender viewer, final @NonNull Title title) {
+    sendTitle(Collections.singleton(viewer), title);
+  }
+
+  /**
+   * Sends {@code title} to the given {@code viewers}.
+   *
+   * @param viewers the viewers to send the title to
+   * @param title the title
+   */
+  static void sendTitle(final @NonNull Iterable<? extends CommandSender> viewers, final @NonNull Title title) {
+    TextAdapter0.sendTitle(viewers, title);
   }
 
   /**
@@ -135,6 +156,15 @@ final class TextAdapter0 {
       } else {
         adapter.sendMessage(list, component);
       }
+    }
+  }
+
+  static void sendTitle(final Iterable<? extends CommandSender> viewers, final Title title) {
+    final List<CommandSender> list = new LinkedList<>();
+    Iterables.addAll(list, viewers);
+    for(final Iterator<Adapter> it = ADAPTERS.iterator(); it.hasNext() && !list.isEmpty(); ) {
+      final Adapter adapter = it.next();
+      adapter.sendTitle(list, title);
     }
   }
 }

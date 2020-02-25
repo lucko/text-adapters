@@ -8,7 +8,7 @@ repositories {
 }
 
 dependencies {
-  api 'net.kyori:text-api:3.0.0'
+  api 'net.kyori:text-api:3.0.3-SNAPSHOT'
   api 'net.kyori:text-serializer-gson:3.0.0'
   api 'net.kyori:text-serializer-legacy:3.0.0'
   compileOnly 'org.spigotmc:spigot-api:1.14-R0.1-SNAPSHOT'

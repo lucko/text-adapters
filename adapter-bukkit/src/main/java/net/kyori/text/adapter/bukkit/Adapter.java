@@ -25,6 +25,7 @@ package net.kyori.text.adapter.bukkit;
 
 import java.util.List;
 import net.kyori.text.Component;
+import net.kyori.text.title.Title;
 import org.bukkit.command.CommandSender;
 
 interface Adapter {
@@ -36,6 +37,15 @@ interface Adapter {
    * @param component the component
    */
   void sendMessage(final List<? extends CommandSender> viewers, final Component component);
+
+  /**
+   * Attempts to send the {@code title} to each sender in the given list, removing
+   * viewers from the list if the adapter was able to successfully send the title.
+   *
+   * @param viewers the viewers
+   * @param title the title
+   */
+  void sendTitle(final List<? extends CommandSender> viewers, final Title title);
 
   /**
    * Attempts to send the {@code component} to each sender in the given list, removing

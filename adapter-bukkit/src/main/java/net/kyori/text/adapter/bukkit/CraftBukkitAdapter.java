@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.function.Function;
 import net.kyori.text.Component;
 import net.kyori.text.serializer.gson.GsonComponentSerializer;
+import net.kyori.text.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -132,6 +133,14 @@ final class CraftBukkitAdapter implements Adapter {
   }
 
   @Override
+  public void sendTitle(final List<? extends CommandSender> viewers, final Title title) {
+    if(!ALIVE) {
+      return;
+    }
+    send(viewers, title, REFLECTION_BINDINGS::createTitlePacket);
+  }
+
+  @Override
   public void sendActionBar(final List<? extends CommandSender> viewers, final Component component) {
     if(!ALIVE) {
       return;
@@ -139,7 +148,7 @@ final class CraftBukkitAdapter implements Adapter {
     send(viewers, component, REFLECTION_BINDINGS::createActionBarPacket);
   }
 
-  private static void send(final List<? extends CommandSender> viewers, final Component component, final Function<Component, Object> function) {
+  private static <T> void send(final List<? extends CommandSender> viewers, final T component, final Function<T, Object> function) {
     Object packet = null;
     for(final Iterator<? extends CommandSender> iterator = viewers.iterator(); iterator.hasNext(); ) {
       final CommandSender sender = iterator.next();
@@ -163,6 +172,8 @@ final class CraftBukkitAdapter implements Adapter {
 
     abstract Object createMessagePacket(final Component component);
 
+    abstract Object createTitlePacket(final Title title);
+
     abstract Object createActionBarPacket(final Component component);
 
     abstract void sendPacket(final Object packet, final Player player);
@@ -176,6 +187,11 @@ final class CraftBukkitAdapter implements Adapter {
 
     @Override
     Object createMessagePacket(final Component component) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    Object createTitlePacket(final Title title) {
       throw new UnsupportedOperationException();
     }
 
@@ -224,6 +240,34 @@ final class CraftBukkitAdapter implements Adapter {
       } catch(final Exception e) {
         throw new UnsupportedOperationException("An exception was encountered while creating a packet for a component", e);
       }
+    }
+
+    @Override
+    Object createTitlePacket(final Title title) {
+      if(this.canMakeTitle) {
+        try {
+          Enum constant;
+          try {
+            constant = Enum.valueOf(this.titlePacketClassAction, title.type().name());
+          } catch(final IllegalArgumentException e) {
+            constant = this.titlePacketClassAction.getEnumConstants()[title.type().ordinal()];
+          }
+          final Title.Type type = title.type();
+          if((type == Title.Type.TITLE || type == Title.Type.SUBTITLE || type == Title.Type.ACTIONBAR)) {
+            // TODO
+          } else if(type == Title.Type.TIMES) {
+            final Title.Times times = title.times();
+            return this.titlePacketConstructor.newInstance(constant, this.serializeMethod.invoke(null, times.fadeIn(), times.stay(), times.fadeOut()));
+          } else if(type == Title.Type.CLEAR) {
+            // TODO
+          } else if(type == Title.Type.RESET) {
+            // TODO
+          }
+        } catch(final Exception e) {
+          throw new UnsupportedOperationException("An exception was encountered while creating a packet for a component", e);
+        }
+      }
+      // TODO
     }
 
     @Override
