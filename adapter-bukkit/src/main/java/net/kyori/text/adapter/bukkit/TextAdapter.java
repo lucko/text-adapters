@@ -132,7 +132,10 @@ final class TextAdapter0 {
     if(isSpigotAdapterSupported()) {
       adapters.add(new SpigotAdapter());
     }
-    adapters.add(new CraftBukkitAdapter());
+    final Adapter craftbukkit = CraftBukkitAdapter.load();
+    if(craftbukkit != null) {
+      adapters.add(craftbukkit);
+    }
     adapters.add(new LegacyAdapter());
     return adapters.build();
   }
