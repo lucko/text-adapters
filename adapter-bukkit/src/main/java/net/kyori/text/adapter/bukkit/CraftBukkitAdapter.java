@@ -44,7 +44,7 @@ import org.bukkit.entity.Player;
 
 final class CraftBukkitAdapter implements Adapter {
   private static final Binding REFLECTION_BINDINGS = load();
-  private static final boolean ALIVE = REFLECTION_BINDINGS.valid();
+  private static final boolean ALIVE = REFLECTION_BINDINGS instanceof AliveBinding;
 
   private static Binding load() {
     try {
@@ -64,11 +64,11 @@ final class CraftBukkitAdapter implements Adapter {
       final Class<?> chatPacketClass = minecraftClass(serverVersion, "PacketPlayOutChat");
       final Constructor<?> chatPacketConstructor = chatPacketClass.getConstructor(baseComponentClass);
       final Class<?> titlePacketClass = optionalMinecraftClass(serverVersion, "PacketPlayOutTitle");
-      final Class<? extends Enum> titlePacketClassAction;
+      final Class<? extends Enum<?>> titlePacketClassAction;
       final Constructor<?> titlePacketConstructor;
       final Constructor<?> titlePacketConstructorTimes;
       if(titlePacketClass != null) {
-        titlePacketClassAction = (Class<? extends Enum>) minecraftClass(serverVersion, "PacketPlayOutTitle$EnumTitleAction");
+        titlePacketClassAction = (Class<? extends Enum<?>>) minecraftClass(serverVersion, "PacketPlayOutTitle$EnumTitleAction");
         titlePacketConstructor = titlePacketClass.getConstructor(titlePacketClassAction, baseComponentClass);
         titlePacketConstructorTimes = titlePacketClass.getConstructor(int.class, int.class, int.class);
       } else {
@@ -173,8 +173,6 @@ final class CraftBukkitAdapter implements Adapter {
   }
 
   private static abstract class Binding {
-    abstract boolean valid();
-
     abstract List<Object> createMessagePackets(final Component component);
 
     abstract List<Object> createTitlePackets(final Title title);
@@ -185,11 +183,6 @@ final class CraftBukkitAdapter implements Adapter {
   }
 
   private static final class DeadBinding extends Binding {
-    @Override
-    boolean valid() {
-      return false;
-    }
-
     @Override
     List<Object> createMessagePackets(final Component component) {
       throw new UnsupportedOperationException();
@@ -232,11 +225,6 @@ final class CraftBukkitAdapter implements Adapter {
       this.titlePacketConstructorTimes = titlePacketConstructorTimes;
       this.canMakeTitle = this.titlePacketClassAction != null && this.titlePacketConstructor != null;
       this.serializeMethod = serializeMethod;
-    }
-
-    @Override
-    boolean valid() {
-      return true;
     }
 
     @Override

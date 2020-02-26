@@ -27,6 +27,7 @@ import net.kyori.text.Component;
 import net.kyori.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.text.title.Title;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.api.effect.Viewer;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.channel.ChatTypeMessageReceiver;
@@ -93,7 +94,7 @@ public interface TextAdapter {
    * @param title the title
    */
   static void sendTitle(final @NonNull Viewer viewer, final @NonNull Title title) {
-    viewer.sendTitle(toSponge(title));
+    viewer.sendTitle(TextAdapter0.toSponge(title));
   }
 
   /**
@@ -103,7 +104,7 @@ public interface TextAdapter {
    * @param title the title
    */
   static void sendTitle(final @NonNull Iterable<? extends Viewer> viewers, final @NonNull Title title) {
-    final org.spongepowered.api.text.title.Title text = toSponge(title);
+    final org.spongepowered.api.text.title.Title text = TextAdapter0.toSponge(title);
     for(final Viewer viewer : viewers) {
       viewer.sendTitle(text);
     }
@@ -173,40 +174,31 @@ public interface TextAdapter {
   static @NonNull Text toSponge(final @NonNull Component component) {
     return TextSerializers.JSON.deserialize(GsonComponentSerializer.INSTANCE.serialize(component));
   }
+}
 
-  /**
-   * Converts {@code title} to the {@link org.spongepowered.api.text.title.Title} format used by Sponge.
-   *
-   * <p>The adapter makes no guarantees about the underlying structure/type of the components.
-   * i.e. is it not guaranteed that a {@link net.kyori.text.TextComponent} will map to a
-   * {@link org.spongepowered.api.text.LiteralText}.</p>
-   *
-   * <p>The {@code sendComponent} methods should be used instead of this method when possible.</p>
-   *
-   * @param title the title
-   * @return the Text representation of the title
-   */
+final class TextAdapter0 {
+  static @Nullable Text toSponge(final @Nullable Component component) {
+    return component == null ? null : TextSerializers.JSON.deserialize(GsonComponentSerializer.INSTANCE.serialize(component));
+  }
+
   static org.spongepowered.api.text.title.@NonNull Title toSponge(final @NonNull Title title) {
-    final Title.Type type = title.type();
-    if(type == Title.Type.TITLE) {
-      return org.spongepowered.api.text.title.Title.of(title.text());
-    } else if(type == Title.Type.SUBTITLE) {
-
-    } else if(type == Title.Type.ACTIONBAR) {
-
-    } else if(type == Title.Type.TIMES) {
-      return org.spongepowered.api.text.title.Title.builder()
-        .fadeIn(title.times().fadeIn())
-        .stay(title.times().stay())
-        .fadeOut(title.times().fadeOut())
-        .build();
-    } else if(type == Title.Type.CLEAR) {
-      return org.spongepowered.api.text.title.Title.clear();
-    } else if(type == Title.Type.RESET) {
-      return org.spongepowered.api.text.title.Title.reset();
-    } else {
-      throw new IllegalArgumentException("unknown type " + type);
+    final org.spongepowered.api.text.title.Title.Builder builder = org.spongepowered.api.text.title.Title.builder()
+      .title(toSponge(title.title()))
+      .subtitle(toSponge(title.title()))
+      .actionBar(toSponge(title.actionbar()));
+    final Title.Times times = title.times();
+    if(times != null) {
+      builder
+        .fadeIn(times.fadeIn())
+        .stay(times.stay())
+        .fadeOut(times.fadeOut());
     }
-    return TextSerializers.JSON.deserialize(GsonComponentSerializer.INSTANCE.serialize(title));
+    if(title.shouldClear()) {
+      builder.clear(true);
+    }
+    if(title.shouldReset()) {
+      builder.reset(true);
+    }
+    return builder.build();
   }
 }
