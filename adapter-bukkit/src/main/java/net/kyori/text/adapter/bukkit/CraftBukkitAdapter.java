@@ -80,10 +80,6 @@ final class CraftBukkitAdapter implements Adapter {
         if(msg.shouldReset()) {
           packets.add(this.reflection.createTitleResetPacket());
         }
-        final Component actionbar = msg.actionbar();
-        if(actionbar != null) {
-          packets.add(this.reflection.createTitleActionbarPacket(actionbar));
-        }
         final Title.Times times = msg.times();
         if(times != null) {
           packets.add(this.reflection.createTitleTimesPacket(times));
@@ -95,6 +91,10 @@ final class CraftBukkitAdapter implements Adapter {
         final Component title = msg.title();
         if(title != null) {
           packets.add(this.reflection.createTitleTitlePacket(title));
+        }
+        final Component actionbar = msg.actionbar();
+        if(actionbar != null) {
+          packets.add(this.reflection.createTitleActionbarPacket(actionbar));
         }
         return packets;
       } catch(final Exception e) {
@@ -124,10 +124,10 @@ final class CraftBukkitAdapter implements Adapter {
   private <T> void send(final List<? extends CommandSender> viewers, final T component, final Function<T, List<Object>> function) {
     List<Object> packets = null;
     for(final Iterator<? extends CommandSender> iterator = viewers.iterator(); iterator.hasNext(); ) {
-      final CommandSender sender = iterator.next();
-      if(sender instanceof Player) {
+      final CommandSender viewer = iterator.next();
+      if(viewer instanceof Player) {
         try {
-          final Player player = (Player) sender;
+          final Player player = (Player) viewer;
           if(packets == null) {
             packets = function.apply(component);
           }
@@ -148,7 +148,9 @@ final class CraftBukkitAdapter implements Adapter {
       final Object connection = this.reflection.getConnection(player);
       for(int i = 0, size = packets.size(); i < size; i++) {
         final Object packet = packets.get(i);
-        this.reflection.sendPacket(connection, packet);
+        if(packet != null) {
+          this.reflection.sendPacket(connection, packet);
+        }
       }
     } catch(final Exception e) {
       throw new UnsupportedOperationException("An exception was encountered while sending a packet for a component", e);
