@@ -25,7 +25,9 @@ package net.kyori.text.adapter.spongeapi;
 
 import net.kyori.text.Component;
 import net.kyori.text.serializer.gson.GsonComponentSerializer;
+import net.kyori.text.title.Title;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.spongepowered.api.effect.Viewer;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.channel.ChatTypeMessageReceiver;
 import org.spongepowered.api.text.channel.MessageReceiver;
@@ -58,6 +60,7 @@ public interface TextAdapter {
       viewer.sendMessage(text);
     }
   }
+
   /**
    * Sends {@code component} to the given {@code viewer}.
    *
@@ -80,6 +83,29 @@ public interface TextAdapter {
     final Text text = toSponge(component);
     for(final ChatTypeMessageReceiver viewer : viewers) {
       viewer.sendMessage(type, text);
+    }
+  }
+
+  /**
+   * Sends {@code title} to the given {@code viewer}.
+   *
+   * @param viewer the viewer to send the title to
+   * @param title the title
+   */
+  static void sendTitle(final @NonNull Viewer viewer, final @NonNull Title title) {
+    viewer.sendTitle(toSponge(title));
+  }
+
+  /**
+   * Sends {@code title} to the given {@code viewers}.
+   *
+   * @param viewers the viewers to send the title to
+   * @param title the title
+   */
+  static void sendTitle(final @NonNull Iterable<? extends Viewer> viewers, final @NonNull Title title) {
+    final org.spongepowered.api.text.title.Title text = toSponge(title);
+    for(final Viewer viewer : viewers) {
+      viewer.sendTitle(text);
     }
   }
 
@@ -146,5 +172,41 @@ public interface TextAdapter {
    */
   static @NonNull Text toSponge(final @NonNull Component component) {
     return TextSerializers.JSON.deserialize(GsonComponentSerializer.INSTANCE.serialize(component));
+  }
+
+  /**
+   * Converts {@code title} to the {@link org.spongepowered.api.text.title.Title} format used by Sponge.
+   *
+   * <p>The adapter makes no guarantees about the underlying structure/type of the components.
+   * i.e. is it not guaranteed that a {@link net.kyori.text.TextComponent} will map to a
+   * {@link org.spongepowered.api.text.LiteralText}.</p>
+   *
+   * <p>The {@code sendComponent} methods should be used instead of this method when possible.</p>
+   *
+   * @param title the title
+   * @return the Text representation of the title
+   */
+  static org.spongepowered.api.text.title.@NonNull Title toSponge(final @NonNull Title title) {
+    final Title.Type type = title.type();
+    if(type == Title.Type.TITLE) {
+      return org.spongepowered.api.text.title.Title.of(title.text());
+    } else if(type == Title.Type.SUBTITLE) {
+
+    } else if(type == Title.Type.ACTIONBAR) {
+
+    } else if(type == Title.Type.TIMES) {
+      return org.spongepowered.api.text.title.Title.builder()
+        .fadeIn(title.times().fadeIn())
+        .stay(title.times().stay())
+        .fadeOut(title.times().fadeOut())
+        .build();
+    } else if(type == Title.Type.CLEAR) {
+      return org.spongepowered.api.text.title.Title.clear();
+    } else if(type == Title.Type.RESET) {
+      return org.spongepowered.api.text.title.Title.reset();
+    } else {
+      throw new IllegalArgumentException("unknown type " + type);
+    }
+    return TextSerializers.JSON.deserialize(GsonComponentSerializer.INSTANCE.serialize(title));
   }
 }

@@ -28,7 +28,9 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -64,12 +66,15 @@ final class CraftBukkitAdapter implements Adapter {
       final Class<?> titlePacketClass = optionalMinecraftClass(serverVersion, "PacketPlayOutTitle");
       final Class<? extends Enum> titlePacketClassAction;
       final Constructor<?> titlePacketConstructor;
+      final Constructor<?> titlePacketConstructorTimes;
       if(titlePacketClass != null) {
         titlePacketClassAction = (Class<? extends Enum>) minecraftClass(serverVersion, "PacketPlayOutTitle$EnumTitleAction");
         titlePacketConstructor = titlePacketClass.getConstructor(titlePacketClassAction, baseComponentClass);
+        titlePacketConstructorTimes = titlePacketClass.getConstructor(int.class, int.class, int.class);
       } else {
         titlePacketClassAction = null;
         titlePacketConstructor = null;
+        titlePacketConstructorTimes = null;
       }
       final Class<?> chatSerializerClass = Arrays.stream(baseComponentClass.getClasses())
         .filter(JsonDeserializer.class::isAssignableFrom)
@@ -88,7 +93,7 @@ final class CraftBukkitAdapter implements Adapter {
         .filter(m -> m.getParameterCount() == 1 && m.getParameterTypes()[0].equals(String.class))
         .min(Comparator.comparing(Method::getName)) // prefer the #a method
         .orElseThrow(() -> new RuntimeException("Unable to find serialize method"));
-      return new AliveBinding(getHandleMethod, playerConnectionField, sendPacketMethod, chatPacketConstructor, titlePacketClassAction, titlePacketConstructor, serializeMethod);
+      return new AliveBinding(getHandleMethod, playerConnectionField, sendPacketMethod, chatPacketConstructor, titlePacketClassAction, titlePacketConstructor, titlePacketConstructorTimes, serializeMethod);
     } catch(final Throwable e) {
       return new DeadBinding();
     }
@@ -129,7 +134,7 @@ final class CraftBukkitAdapter implements Adapter {
     if(!ALIVE) {
       return;
     }
-    send(viewers, component, REFLECTION_BINDINGS::createMessagePacket);
+    send(viewers, component, REFLECTION_BINDINGS::createMessagePackets);
   }
 
   @Override
@@ -137,7 +142,7 @@ final class CraftBukkitAdapter implements Adapter {
     if(!ALIVE) {
       return;
     }
-    send(viewers, title, REFLECTION_BINDINGS::createTitlePacket);
+    send(viewers, title, REFLECTION_BINDINGS::createTitlePackets);
   }
 
   @Override
@@ -145,20 +150,20 @@ final class CraftBukkitAdapter implements Adapter {
     if(!ALIVE) {
       return;
     }
-    send(viewers, component, REFLECTION_BINDINGS::createActionBarPacket);
+    send(viewers, component, REFLECTION_BINDINGS::createActionBarPackets);
   }
 
-  private static <T> void send(final List<? extends CommandSender> viewers, final T component, final Function<T, Object> function) {
-    Object packet = null;
+  private static <T> void send(final List<? extends CommandSender> viewers, final T component, final Function<T, List<Object>> function) {
+    List<Object> packets = null;
     for(final Iterator<? extends CommandSender> iterator = viewers.iterator(); iterator.hasNext(); ) {
       final CommandSender sender = iterator.next();
       if(sender instanceof Player) {
         try {
           final Player player = (Player) sender;
-          if(packet == null) {
-            packet = function.apply(component);
+          if(packets == null) {
+            packets = function.apply(component);
           }
-          REFLECTION_BINDINGS.sendPacket(packet, player);
+          REFLECTION_BINDINGS.sendPackets(player, packets);
           iterator.remove();
         } catch(final Exception e) {
           e.printStackTrace();
@@ -170,13 +175,13 @@ final class CraftBukkitAdapter implements Adapter {
   private static abstract class Binding {
     abstract boolean valid();
 
-    abstract Object createMessagePacket(final Component component);
+    abstract List<Object> createMessagePackets(final Component component);
 
-    abstract Object createTitlePacket(final Title title);
+    abstract List<Object> createTitlePackets(final Title title);
 
-    abstract Object createActionBarPacket(final Component component);
+    abstract List<Object> createActionBarPackets(final Component component);
 
-    abstract void sendPacket(final Object packet, final Player player);
+    abstract void sendPackets(final Player player, final List<Object> packets);
   }
 
   private static final class DeadBinding extends Binding {
@@ -186,22 +191,22 @@ final class CraftBukkitAdapter implements Adapter {
     }
 
     @Override
-    Object createMessagePacket(final Component component) {
+    List<Object> createMessagePackets(final Component component) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    Object createTitlePacket(final Title title) {
+    List<Object> createTitlePackets(final Title title) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    Object createActionBarPacket(final Component component) {
+    List<Object> createActionBarPackets(final Component component) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    void sendPacket(final Object packet, final Player player) {
+    void sendPackets(final Player player, final List<Object> packets) {
       throw new UnsupportedOperationException();
     }
   }
@@ -213,16 +218,18 @@ final class CraftBukkitAdapter implements Adapter {
     private final Constructor<?> chatPacketConstructor;
     private final Class<? extends Enum> titlePacketClassAction;
     private final Constructor<?> titlePacketConstructor;
+    private final Constructor<?> titlePacketConstructorTimes;
     private final boolean canMakeTitle;
     private final Method serializeMethod;
 
-    AliveBinding(final Method getHandleMethod, final Field playerConnectionField, final Method sendPacketMethod, final Constructor<?> chatPacketConstructor, final Class<? extends Enum> titlePacketClassAction, final Constructor<?> titlePacketConstructor, final Method serializeMethod) {
+    AliveBinding(final Method getHandleMethod, final Field playerConnectionField, final Method sendPacketMethod, final Constructor<?> chatPacketConstructor, final Class<? extends Enum> titlePacketClassAction, final Constructor<?> titlePacketConstructor, final Constructor<?> titlePacketConstructorTimes, final Method serializeMethod) {
       this.getHandleMethod = getHandleMethod;
       this.playerConnectionField = playerConnectionField;
       this.sendPacketMethod = sendPacketMethod;
       this.chatPacketConstructor = chatPacketConstructor;
       this.titlePacketClassAction = titlePacketClassAction;
       this.titlePacketConstructor = titlePacketConstructor;
+      this.titlePacketConstructorTimes = titlePacketConstructorTimes;
       this.canMakeTitle = this.titlePacketClassAction != null && this.titlePacketConstructor != null;
       this.serializeMethod = serializeMethod;
     }
@@ -233,45 +240,52 @@ final class CraftBukkitAdapter implements Adapter {
     }
 
     @Override
-    Object createMessagePacket(final Component component) {
+    List<Object> createMessagePackets(final Component component) {
       final String json = GsonComponentSerializer.INSTANCE.serialize(component);
       try {
-        return this.chatPacketConstructor.newInstance(this.serializeMethod.invoke(null, json));
+        return Collections.singletonList(this.chatPacketConstructor.newInstance(this.serializeMethod.invoke(null, json)));
       } catch(final Exception e) {
         throw new UnsupportedOperationException("An exception was encountered while creating a packet for a component", e);
       }
     }
 
     @Override
-    Object createTitlePacket(final Title title) {
+    List<Object> createTitlePackets(final Title msg) {
       if(this.canMakeTitle) {
         try {
-          Enum constant;
-          try {
-            constant = Enum.valueOf(this.titlePacketClassAction, title.type().name());
-          } catch(final IllegalArgumentException e) {
-            constant = this.titlePacketClassAction.getEnumConstants()[title.type().ordinal()];
+          final List<Object> packets = new ArrayList<>();
+          if(msg.shouldClear()) {
+            packets.add(this.titlePacketConstructor.newInstance(Enum.valueOf(this.titlePacketClassAction, "CLEAR"), null));
           }
-          final Title.Type type = title.type();
-          if((type == Title.Type.TITLE || type == Title.Type.SUBTITLE || type == Title.Type.ACTIONBAR)) {
-            // TODO
-          } else if(type == Title.Type.TIMES) {
-            final Title.Times times = title.times();
-            return this.titlePacketConstructor.newInstance(constant, this.serializeMethod.invoke(null, times.fadeIn(), times.stay(), times.fadeOut()));
-          } else if(type == Title.Type.CLEAR) {
-            // TODO
-          } else if(type == Title.Type.RESET) {
-            // TODO
+          if(msg.shouldReset()) {
+            packets.add(this.titlePacketConstructor.newInstance(Enum.valueOf(this.titlePacketClassAction, "RESET"), null));
           }
+          final Component actionbar = msg.actionbar();
+          if(actionbar != null) {
+            packets.add(this.titlePacketConstructor.newInstance(Enum.valueOf(this.titlePacketClassAction, "ACTIONBAR"), this.serializeMethod.invoke(null, GsonComponentSerializer.INSTANCE.serialize(actionbar))));
+          }
+          final Title.Times times = msg.times();
+          if(times != null) {
+            packets.add(this.titlePacketConstructorTimes.newInstance(times.fadeIn(), times.stay(), times.fadeOut()));
+          }
+          final Component subtitle = msg.subtitle();
+          if(subtitle != null) {
+            packets.add(this.titlePacketConstructor.newInstance(Enum.valueOf(this.titlePacketClassAction, "SUBTITLE"), this.serializeMethod.invoke(null, GsonComponentSerializer.INSTANCE.serialize(subtitle))));
+          }
+          final Component title = msg.title();
+          if(title != null) {
+            packets.add(this.titlePacketConstructor.newInstance(Enum.valueOf(this.titlePacketClassAction, "TITLE"), this.serializeMethod.invoke(null, GsonComponentSerializer.INSTANCE.serialize(title))));
+          }
+          return packets;
         } catch(final Exception e) {
           throw new UnsupportedOperationException("An exception was encountered while creating a packet for a component", e);
         }
       }
-      // TODO
+      return Collections.emptyList();
     }
 
     @Override
-    Object createActionBarPacket(final Component component) {
+    List<Object> createActionBarPackets(final Component component) {
       if(this.canMakeTitle) {
         try {
           Enum constant;
@@ -281,20 +295,26 @@ final class CraftBukkitAdapter implements Adapter {
             constant = this.titlePacketClassAction.getEnumConstants()[2];
           }
           final String json = GsonComponentSerializer.INSTANCE.serialize(component);
-          return this.titlePacketConstructor.newInstance(constant, this.serializeMethod.invoke(null, json));
+          return Collections.singletonList(this.titlePacketConstructor.newInstance(constant, this.serializeMethod.invoke(null, json)));
         } catch(final Exception e) {
           throw new UnsupportedOperationException("An exception was encountered while creating a packet for a component", e);
         }
       } else {
-        return this.createMessagePacket(component);
+        return this.createMessagePackets(component);
       }
     }
 
     @Override
-    void sendPacket(final Object packet, final Player player) {
+    void sendPackets(final Player player, final List<Object> packets) {
+      if(packets.isEmpty()) {
+        return;
+      }
       try {
         final Object connection = this.playerConnectionField.get(this.getHandleMethod.invoke(player));
-        this.sendPacketMethod.invoke(connection, packet);
+        for(int i = 0, size = packets.size(); i < size; i++) {
+          final Object packet = packets.get(i);
+          this.sendPacketMethod.invoke(connection, packet);
+        }
       } catch(final Exception e) {
         throw new UnsupportedOperationException("An exception was encountered while sending a packet for a component", e);
       }
