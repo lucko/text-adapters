@@ -23,36 +23,27 @@
  */
 package net.kyori.text.adapter.bukkit;
 
+import com.google.common.collect.ImmutableList;
+import java.util.Iterator;
 import java.util.List;
-import net.kyori.text.Component;
-import net.kyori.text.title.Title;
-import org.bukkit.command.CommandSender;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-interface Adapter {
-  /**
-   * Attempts to send the {@code component} to each sender in the given list, removing
-   * viewers from the list if the adapter was able to successfully send the component.
-   *
-   * @param viewers the viewers
-   * @param component the component
-   */
-  void sendMessage(final List<? extends CommandSender> viewers, final Component component);
+final class Pipes {
+  private static final List<Pipe> PIPES;
 
-  /**
-   * Attempts to send the {@code title} to each sender in the given list, removing
-   * viewers from the list if the adapter was able to successfully send the title.
-   *
-   * @param viewers the viewers
-   * @param title the title
-   */
-  void sendTitle(final List<? extends CommandSender> viewers, final Title title);
+  static {
+    final ImmutableList.Builder<Pipe> pipes = ImmutableList.builder();
+    maybeAdd(pipes, SpigotPipe.create());
+    maybeAdd(pipes, CraftBukkitPipe.create());
+    pipes.add(new LegacyPipe());
+    PIPES = pipes.build();
+  }
 
-  /**
-   * Attempts to send the {@code component} to each sender in the given list, removing
-   * viewers from the list if the adapter was able to successfully send the component.
-   *
-   * @param viewers the viewers
-   * @param component the component
-   */
-  void sendActionBar(final List<? extends CommandSender> viewers, final Component component);
+  private static void maybeAdd(final ImmutableList.Builder<Pipe> pipes, final @Nullable Pipe pipe) {
+    if(pipe != null) pipes.add(pipe);
+  }
+
+  static Iterator<Pipe> all() {
+    return PIPES.iterator();
+  }
 }

@@ -23,30 +23,41 @@
  */
 package net.kyori.text.adapter.bukkit;
 
+import com.google.common.collect.Iterables;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import net.kyori.text.Component;
-import net.md_5.bungee.api.chat.BaseComponent;
+import net.kyori.text.title.Title;
+import org.bukkit.command.CommandSender;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-/**
- * An adapter for converting text {@link Component}s to Spigot (BungeeCord) objects.
- *
- * <p>This class is an extension of {@link TextAdapter}, since the plain Bukkit API does not include
- * the BungeeCord Chat API.</p>
- */
-public interface SpigotTextAdapter {
-  /**
-   * Converts {@code component} to the {@link BaseComponent} format used by Spigot (BungeeCord).
-   *
-   * <p>The adapter makes no guarantees about the underlying structure/type of the components.
-   * i.e. is it not guaranteed that a {@link net.kyori.text.TextComponent} will map to a
-   * {@link net.md_5.bungee.api.chat.TextComponent}.</p>
-   *
-   * <p>The {@code sendComponent} methods should be used instead of this method when possible.</p>
-   *
-   * @param component the component
-   * @return the Text representation of the component
-   */
-  static @NonNull BaseComponent[] toBungeeCord(final @NonNull Component component) {
-    return SpigotPipe.toBungeeCord(component);
+interface Pipe {
+  static <T> void send(final T type, final Iterable<? extends CommandSender> viewers, final Action<T> action) {
+    send(type, asList(viewers), action);
   }
+
+  static List<? extends CommandSender> asList(final Iterable<? extends CommandSender> iterable) {
+    final List<CommandSender> list = new LinkedList<>();
+    Iterables.addAll(list, iterable);
+    return list;
+  }
+
+  static <T> void send(final T type, final List<? extends CommandSender> viewers, final Action<T> action) {
+    final Iterator<Pipe> pipes = Pipes.all();
+    while(pipes.hasNext() && !viewers.isEmpty()) {
+      final Pipe pipe = pipes.next();
+      action.accept(pipe, type, viewers);
+    }
+  }
+
+  interface Action<T> {
+    void accept(final Pipe pipe, final T type, final List<? extends CommandSender> viewers);
+  }
+
+  void message(final @NonNull Component type, final @NonNull List<? extends CommandSender> viewers);
+
+  void actionBar(final @NonNull Component type, final @NonNull List<? extends CommandSender> viewers);
+
+  void title(final @NonNull Title type, final @NonNull List<? extends CommandSender> viewers);
 }

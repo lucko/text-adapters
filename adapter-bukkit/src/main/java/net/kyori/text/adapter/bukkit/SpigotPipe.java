@@ -48,17 +48,39 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.chat.ComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-final class SpigotAdapter implements Adapter {
-  private static final boolean BOUND = bind();
+final class SpigotPipe implements Pipe {
+  private static boolean bound; // TODO: kill
+
+  static @Nullable Pipe create() {
+    if(!canEvenTry()) {
+      return null;
+    }
+    if(addSerializer()) {
+      bound = true;
+      return new SpigotPipe();
+    }
+    return null;
+  }
+
+  private static boolean canEvenTry() {
+    try {
+      Player.class.getMethod("spigot");
+      return true;
+    } catch(final NoSuchMethodException e) {
+      return false;
+    }
+  }
 
   @SuppressWarnings("unchecked")
-  private static boolean bind() {
+  private static boolean addSerializer() {
     try {
-      final Field gsonField = field(ComponentSerializer.class, "gson");
-      final Field factoriesField = field(Gson.class, "factories");
-      final Field builderFactoriesField = field(GsonBuilder.class, "factories");
-      final Field builderHierarchyFactoriesField = field(GsonBuilder.class, "hierarchyFactories");
+      final Field gsonField = ReflectionPipe.field(ComponentSerializer.class, "gson");
+      final Field factoriesField = ReflectionPipe.field(Gson.class, "factories");
+      final Field builderFactoriesField = ReflectionPipe.field(GsonBuilder.class, "factories");
+      final Field builderHierarchyFactoriesField = ReflectionPipe.field(GsonBuilder.class, "hierarchyFactories");
 
       final Gson gson = (Gson) gsonField.get(null);
       final GsonBuilder builder = GsonComponentSerializer.populate(new GsonBuilder());
@@ -98,12 +120,6 @@ final class SpigotAdapter implements Adapter {
     }
   }
 
-  private static Field field(final Class<?> klass, final String name) throws NoSuchFieldException {
-    final Field field = klass.getDeclaredField(name);
-    field.setAccessible(true);
-    return field;
-  }
-
   private static int findExcluderIndex(final List<TypeAdapterFactory> factories) {
     for(int i = 0, size = factories.size(); i < size; i++) {
       final TypeAdapterFactory factory = factories.get(i);
@@ -115,30 +131,21 @@ final class SpigotAdapter implements Adapter {
   }
 
   @Override
-  public void sendMessage(final List<? extends CommandSender> viewers, final Component component) {
-    if(!BOUND) {
-      return;
-    }
-    send(viewers, component, (viewer, components) -> viewer.spigot().sendMessage(components));
+  public void message(final @NonNull Component type, final @NonNull List<? extends CommandSender> viewers) {
+    send(viewers, type, (viewer, components) -> viewer.spigot().sendMessage(components));
   }
 
   @Override
-  public void sendTitle(final List<? extends CommandSender> viewers, final Title title) {
+  public void actionBar(final @NonNull Component type, final @NonNull List<? extends CommandSender> viewers) {
+    send(viewers, type, (viewer, components) -> viewer.spigot().sendMessage(ChatMessageType.ACTION_BAR, components));
+  }
+
+  @Override
+  public void title(final @NonNull Title type, final @NonNull List<? extends CommandSender> viewers) {
     // TODO
   }
 
-  @Override
-  public void sendActionBar(final List<? extends CommandSender> viewers, final Component component) {
-    if(!BOUND) {
-      return;
-    }
-    send(viewers, component, (viewer, components) -> viewer.spigot().sendMessage(ChatMessageType.ACTION_BAR, components));
-  }
-
   private static void send(final List<? extends CommandSender> viewers, final Component component, final BiConsumer<Player, BaseComponent[]> consumer) {
-    if(!BOUND) {
-      return;
-    }
     final BaseComponent[] components = {new AdapterComponent(component)};
     for(final Iterator<? extends CommandSender> it = viewers.iterator(); it.hasNext(); ) {
       final CommandSender viewer = it.next();
@@ -154,7 +161,7 @@ final class SpigotAdapter implements Adapter {
   }
 
   static BaseComponent[] toBungeeCord(final Component component) {
-    if(BOUND) {
+    if(bound) {
       return new BaseComponent[]{new AdapterComponent(component)};
     } else {
       return ComponentSerializer.parse(GsonComponentSerializer.INSTANCE.serialize(component));

@@ -23,30 +23,45 @@
  */
 package net.kyori.text.adapter.bukkit;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 import net.kyori.text.Component;
 import net.kyori.text.title.Title;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * An adapter for sending text {@link Component}s to Bukkit objects.
  */
 public interface TextAdapter {
+  static @NonNull Type<Component> messages() {
+    return TextAdapter0.MESSAGES;
+  }
+
+  static @NonNull Type<Component> actionBars() {
+    return TextAdapter0.ACTION_BARS;
+  }
+
+  static @NonNull Type<Title> titles() {
+    return TextAdapter0.TITLES;
+  }
+
+  interface Type<T> {
+    default void send(final @NonNull T type, final @NonNull CommandSender viewer) { this.send(type, Collections.singleton(viewer)); }
+    default void send(final @NonNull T type, final @NonNull CommandSender@NonNull... viewers) { this.send(type, Arrays.asList(viewers)); }
+    void send(final @NonNull T type, final @NonNull Iterable<? extends CommandSender> viewers);
+  }
+
   /**
    * Sends {@code component} to the given {@code viewer}.
    *
    * @param viewer the viewer to send the component to
    * @param component the component
+   * @deprecated use {@link #messages()}
    */
+  @Deprecated
   static void sendMessage(final @NonNull CommandSender viewer, final @NonNull Component component) {
-    sendComponent(Collections.singleton(viewer), component);
+    messages().send(component, viewer);
   }
 
   /**
@@ -54,53 +69,11 @@ public interface TextAdapter {
    *
    * @param viewers the viewers to send the component to
    * @param component the component
+   * @deprecated use {@link #messages()}
    */
+  @Deprecated
   static void sendMessage(final @NonNull Iterable<? extends CommandSender> viewers, final @NonNull Component component) {
-    TextAdapter0.sendComponent(viewers, component, false);
-  }
-
-  /**
-   * Sends {@code title} to the given {@code viewers.
-   *
-   * @param viewer the viewer to send the title to
-   * @param title the title
-   */
-  static void sendTitle(final @NonNull CommandSender viewer, final @NonNull Title title) {
-    sendTitle(Collections.singleton(viewer), title);
-  }
-
-  /**
-   * Sends {@code title} to the given {@code viewers}.
-   *
-   * @param viewers the viewers to send the title to
-   * @param title the title
-   */
-  static void sendTitle(final @NonNull Iterable<? extends CommandSender> viewers, final @NonNull Title title) {
-    TextAdapter0.sendTitle(viewers, title);
-  }
-
-  /**
-   * Sends {@code component} to the given {@code viewer}.
-   *
-   * @param viewer the viewer to send the component to
-   * @param component the component
-   * @deprecated use {@link #sendMessage(CommandSender, Component)}
-   */
-  @Deprecated
-  static void sendComponent(final @NonNull CommandSender viewer, final @NonNull Component component) {
-    sendComponent(Collections.singleton(viewer), component);
-  }
-
-  /**
-   * Sends {@code component} to the given {@code viewers}.
-   *
-   * @param viewers the viewers to send the component to
-   * @param component the component
-   * @deprecated use {@link #sendMessage(Iterable, Component)}
-   */
-  @Deprecated
-  static void sendComponent(final @NonNull Iterable<? extends CommandSender> viewers, final @NonNull Component component) {
-    TextAdapter0.sendComponent(viewers, component, false);
+    messages().send(component, viewers);
   }
 
   /**
@@ -108,9 +81,11 @@ public interface TextAdapter {
    *
    * @param viewer the viewer to send the component to
    * @param component the component
+   * @deprecated use {@link #actionBars()}
    */
+  @Deprecated
   static void sendActionBar(final @NonNull CommandSender viewer, final @NonNull Component component) {
-    sendActionBar(Collections.singleton(viewer), component);
+    actionBars().send(component, viewer);
   }
 
   /**
@@ -118,56 +93,34 @@ public interface TextAdapter {
    *
    * @param viewers the viewers to send the component to
    * @param component the component
+   * @deprecated use {@link #actionBars()}
    */
+  @Deprecated
   static void sendActionBar(final @NonNull Iterable<? extends CommandSender> viewers, final @NonNull Component component) {
-    TextAdapter0.sendComponent(viewers, component, true);
-  }
-}
-
-final class TextAdapter0 {
-  private static final List<Adapter> ADAPTERS = pickAdapters();
-
-  private static List<Adapter> pickAdapters() {
-    final ImmutableList.Builder<Adapter> adapters = ImmutableList.builder();
-    if(isSpigotAdapterSupported()) {
-      adapters.add(new SpigotAdapter());
-    }
-    final Adapter craftbukkit = CraftBukkitAdapter.load();
-    if(craftbukkit != null) {
-      adapters.add(craftbukkit);
-    }
-    adapters.add(new LegacyAdapter());
-    return adapters.build();
+    actionBars().send(component, viewers);
   }
 
-  private static boolean isSpigotAdapterSupported() {
-    try {
-      Player.class.getMethod("spigot");
-      return true;
-    } catch(final NoSuchMethodException e) {
-      return false;
-    }
+  /**
+   * Sends {@code component} to the given {@code viewer}.
+   *
+   * @param viewer the viewer to send the component to
+   * @param component the component
+   * @deprecated use {@link #messages()}
+   */
+  @Deprecated
+  static void sendComponent(final @NonNull CommandSender viewer, final @NonNull Component component) {
+    sendComponent(viewer, component);
   }
 
-  static void sendComponent(final Iterable<? extends CommandSender> viewers, final Component component, final boolean actionBar) {
-    final List<CommandSender> list = new LinkedList<>();
-    Iterables.addAll(list, viewers);
-    for(final Iterator<Adapter> it = ADAPTERS.iterator(); it.hasNext() && !list.isEmpty(); ) {
-      final Adapter adapter = it.next();
-      if(actionBar) {
-        adapter.sendActionBar(list, component);
-      } else {
-        adapter.sendMessage(list, component);
-      }
-    }
-  }
-
-  static void sendTitle(final Iterable<? extends CommandSender> viewers, final Title title) {
-    final List<CommandSender> list = new LinkedList<>();
-    Iterables.addAll(list, viewers);
-    for(final Iterator<Adapter> it = ADAPTERS.iterator(); it.hasNext() && !list.isEmpty(); ) {
-      final Adapter adapter = it.next();
-      adapter.sendTitle(list, title);
-    }
+  /**
+   * Sends {@code component} to the given {@code viewers}.
+   *
+   * @param viewers the viewers to send the component to
+   * @param component the component
+   * @deprecated use {@link #messages()}
+   */
+  @Deprecated
+  static void sendComponent(final @NonNull Iterable<? extends CommandSender> viewers, final @NonNull Component component) {
+    sendMessage(viewers, component);
   }
 }

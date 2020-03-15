@@ -23,29 +23,34 @@
  */
 package net.kyori.text.adapter.bukkit;
 
-import java.util.List;
 import net.kyori.text.Component;
-import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.text.title.Title;
 import org.bukkit.command.CommandSender;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
-final class LegacyAdapter implements Adapter {
-  @Override
-  public void sendMessage(final List<? extends CommandSender> viewers, final Component component) {
-    final String legacy = LegacyComponentSerializer.INSTANCE.serialize(component);
-    for(final CommandSender viewer : viewers) {
-      viewer.sendMessage(legacy);
+final class TextAdapter0 {
+  static final TextAdapter.Type<Component> MESSAGES = new Messages();
+  static final TextAdapter.Type<Component> ACTION_BARS = new ActionBars();
+  static final TextAdapter.Type<Title> TITLES = new Titles();
+
+  static class Messages implements TextAdapter.Type<Component> {
+    @Override
+    public void send(final @NonNull Component type, final @NonNull Iterable<? extends CommandSender> viewers) {
+      Pipe.send(type, viewers, Pipe::message);
     }
-    viewers.clear();
   }
 
-  @Override
-  public void sendTitle(final List<? extends CommandSender> viewers, final Title title) {
-    // not supported
+  static class ActionBars implements TextAdapter.Type<Component> {
+    @Override
+    public void send(final @NonNull Component type, final @NonNull Iterable<? extends CommandSender> viewers) {
+      Pipe.send(type, viewers, Pipe::actionBar);
+    }
   }
 
-  @Override
-  public void sendActionBar(final List<? extends CommandSender> viewers, final Component component) {
-    // not supported
+  static class Titles implements TextAdapter.Type<Title> {
+    @Override
+    public void send(final @NonNull Title type, final @NonNull Iterable<? extends CommandSender> viewers) {
+      Pipe.send(type, viewers, Pipe::title);
+    }
   }
 }

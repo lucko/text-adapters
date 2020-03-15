@@ -23,30 +23,31 @@
  */
 package net.kyori.text.adapter.bukkit;
 
+import java.util.List;
 import net.kyori.text.Component;
-import net.md_5.bungee.api.chat.BaseComponent;
+import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.text.title.Title;
+import org.bukkit.command.CommandSender;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-/**
- * An adapter for converting text {@link Component}s to Spigot (BungeeCord) objects.
- *
- * <p>This class is an extension of {@link TextAdapter}, since the plain Bukkit API does not include
- * the BungeeCord Chat API.</p>
- */
-public interface SpigotTextAdapter {
-  /**
-   * Converts {@code component} to the {@link BaseComponent} format used by Spigot (BungeeCord).
-   *
-   * <p>The adapter makes no guarantees about the underlying structure/type of the components.
-   * i.e. is it not guaranteed that a {@link net.kyori.text.TextComponent} will map to a
-   * {@link net.md_5.bungee.api.chat.TextComponent}.</p>
-   *
-   * <p>The {@code sendComponent} methods should be used instead of this method when possible.</p>
-   *
-   * @param component the component
-   * @return the Text representation of the component
-   */
-  static @NonNull BaseComponent[] toBungeeCord(final @NonNull Component component) {
-    return SpigotPipe.toBungeeCord(component);
+final class LegacyPipe implements Pipe {
+  @Override
+  public void message(final @NonNull Component type, final @NonNull List<? extends CommandSender> viewers) {
+    final String legacy = LegacyComponentSerializer.INSTANCE.serialize(type);
+    for(int i = 0, size = viewers.size(); i < size; i++) {
+      viewers.get(i).sendMessage(legacy);
+    }
+    // this is the end of the line - nobody left after this
+    viewers.clear();
+  }
+
+  @Override
+  public void actionBar(final @NonNull Component type, final @NonNull List<? extends CommandSender> viewers) {
+    // unsupported
+  }
+
+  @Override
+  public void title(final @NonNull Title type, final @NonNull List<? extends CommandSender> viewers) {
+    // unsupported
   }
 }
