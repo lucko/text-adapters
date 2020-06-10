@@ -44,6 +44,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
@@ -157,7 +158,7 @@ public final class BukkitPlatform extends AdventurePlatformImpl implements Liste
 
   public BukkitPlatform(final @NonNull Server server) {
     this.server = requireNonNull(server, "server");
-    Crafty.registerEvent(PLUGIN_SELF, PlayerLoginEvent.class, EventPriority.LOWEST, false, this::onPlayerLogin);
+    Crafty.registerEvent(PLUGIN_SELF, PlayerJoinEvent.class, EventPriority.LOWEST, false, this::onPlayerLogin);
     Crafty.registerEvent(PLUGIN_SELF, PlayerQuitEvent.class, EventPriority.MONITOR, false, this::onPlayerQuit);
     Crafty.registerEvent(PLUGIN_SELF, PluginEnableEvent.class, this::onPluginLoad);
     Crafty.registerEvent(PLUGIN_SELF, PluginDisableEvent.class, this::onPluginDisable);
@@ -189,7 +190,7 @@ public final class BukkitPlatform extends AdventurePlatformImpl implements Liste
       new BukkitHandlers.PlaySound_NoCategory());
   }
 
-  public void onPlayerLogin(PlayerLoginEvent event) {
+  public void onPlayerLogin(PlayerJoinEvent event) {
     this.add(new BukkitPlayerAudience(event.getPlayer(), chat, actionBar, title, bossBar, playSound));
   }
 

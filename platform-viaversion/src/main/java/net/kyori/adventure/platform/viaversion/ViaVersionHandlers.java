@@ -23,6 +23,7 @@
  */
 package net.kyori.adventure.platform.viaversion;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -85,36 +86,28 @@ public class ViaVersionHandlers {
    * @param <V> user type
    */
   static abstract class ConnectionBased<V> implements Handler<V> {
-    private final ProtocolVersion targetVersion;
     protected final ViaAPIProvider<? super V> via;
 
-    /**
-     * Create a new handler targeting the default version (1.16).
-     *
-     * @param via api provider
-     */
     protected ConnectionBased(final ViaAPIProvider<? super V> via) {
-      this(via, ProtocolVersion.v1_16);
+      this.via = via;
     }
 
     /**
-     * Create a new handler targeting the specific protocol version.
+     * Get the protocol version this handler is targeted for
      *
      * <p>This handler will only be active for a user if the server version is
      * &lt; the target version, AND the client version is &ge; the target version</p>
      *
-     * @param via api provider
-     * @param targetVersion minimum client version to handle.
+     * @return the version
      */
-    protected ConnectionBased(final ViaAPIProvider<? super V> via, ProtocolVersion targetVersion) {
-      this.via = via;
-      this.targetVersion = targetVersion;
+    protected ProtocolVersion version() {
+      return ProtocolVersion.v1_16;
     }
 
     @Override
     public boolean isAvailable() {
       if(!via.isAvailable()) return false;
-      if(ProtocolRegistry.SERVER_PROTOCOL >= this.targetVersion.getId()) return false; // using the protocol of this version, only adapt for older servers
+      if(ProtocolRegistry.SERVER_PROTOCOL >= version().getId()) return false; // using the protocol of this version, only adapt for older servers
 
       try {
         Class.forName("us.myles.ViaVersion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2"); // make sure we're on a new version
@@ -135,7 +128,7 @@ public class ViaVersionHandlers {
         return false;
       }
 
-      return platform.getApi().isInjected(viewerId) && platform.getApi().getPlayerVersion(viewerId) >= this.targetVersion.getId();
+      return platform.getApi().getPlayerVersion(viewerId) >= version().getId();
     }
 
     protected UserConnection connection(final V viewer) {
@@ -219,7 +212,7 @@ public class ViaVersionHandlers {
       }
 
       if(!TextComponent.empty().equals(title.subtitle())) {
-        final String subtitleJson = GsonComponentSerializer.INSTANCE.serialize(title.title());
+        final String subtitleJson = GsonComponentSerializer.INSTANCE.serialize(title.subtitle());
         final PacketWrapper wrapper = make(viewer, ACTION_SUBTITLE);
         wrapper.write(Type.STRING, subtitleJson);
         send(wrapper);
@@ -257,7 +250,7 @@ public class ViaVersionHandlers {
     private static final byte FLAG_BOSS_MUSIC = 1 << 1;
     private static final byte FLAG_CREATE_WORLD_FOG = 1 << 2;
 
-    private final Map<net.kyori.adventure.bossbar.BossBar, Instance> bars = new ConcurrentHashMap<>();
+    private final Map<net.kyori.adventure.bossbar.BossBar, Instance> bars = new IdentityHashMap<>();
 
     public BossBar(final ViaAPIProvider<? super V> via) {
       super(via);
@@ -401,7 +394,7 @@ public class ViaVersionHandlers {
       }
 
       void sendToSubscribers(final net.kyori.adventure.bossbar.BossBar adventure, final int action, final BiConsumer<PacketWrapper, net.kyori.adventure.bossbar.BossBar> populator) {
-        for(UUID id : subscribedPlayers) {
+        for(UUID id : this.subscribedPlayers) {
           final UserConnection conn = ViaVersionHandlers.BossBar.this.via.platform().getConnectionManager().getConnectedClient(id);
           if(conn != null) {
             final PacketWrapper wrapper = make(conn, action);
@@ -423,7 +416,7 @@ public class ViaVersionHandlers {
     private final Function<V, Pos> positionGetter;
 
     public PlaySound(final ViaAPIProvider<? super V> via, final Function<V, Pos> positionGetter) {
-      super(via, ProtocolVersion.v1_11);
+      super(via);
       this.positionGetter = positionGetter;
     }
 
@@ -470,6 +463,11 @@ public class ViaVersionHandlers {
 
     protected @NonNull String source(final Sound.@Nullable Source source) {
       return source == null ? "" : Sound.Source.NAMES.name(source);
+    }
+
+    @Override
+    protected ProtocolVersion version() {
+      return ProtocolVersion.v1_11;
     }
 
     @Override
