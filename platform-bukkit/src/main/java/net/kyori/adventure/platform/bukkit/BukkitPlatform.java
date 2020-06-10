@@ -37,11 +37,11 @@ import net.kyori.adventure.platform.impl.HandlerCollection;
 import net.kyori.adventure.platform.impl.VersionedGsonComponentSerializer;
 import net.kyori.adventure.platform.viaversion.ViaVersionHandlers;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
@@ -78,6 +78,8 @@ public final class BukkitPlatform extends AdventurePlatformImpl implements Liste
       switch(method.getName()) {
         case "isEnabled":
           return true;
+        case "getServer":
+          return Bukkit.getServer();
         case "equals":
           return proxy == args[0];
         default:
@@ -155,35 +157,53 @@ public final class BukkitPlatform extends AdventurePlatformImpl implements Liste
 
   public BukkitPlatform(final @NonNull Server server) {
     this.server = requireNonNull(server, "server");
-    this.server.getPluginManager().registerEvents(this, PLUGIN_SELF);
+    Crafty.registerEvent(PLUGIN_SELF, PlayerLoginEvent.class, EventPriority.LOWEST, false, this::onPlayerLogin);
+    Crafty.registerEvent(PLUGIN_SELF, PlayerQuitEvent.class, EventPriority.MONITOR, false, this::onPlayerQuit);
+    Crafty.registerEvent(PLUGIN_SELF, PluginEnableEvent.class, this::onPluginLoad);
+    Crafty.registerEvent(PLUGIN_SELF, PluginDisableEvent.class, this::onPluginDisable);
 
     viaProvider = new BukkitViaProvider();
-    chat = new HandlerCollection<>(new ViaVersionHandlers.Chat<>(this.viaProvider), new SpigotHandlers.Chat(), new CraftBukkitHandlers.Chat(), new BukkitHandlers.Chat());
-    actionBar = new HandlerCollection<>(new SpigotHandlers.ActionBar(), new CraftBukkitHandlers.ActionBarModern(), new CraftBukkitHandlers.ActionBar1_8thru1_11());
-    title = new HandlerCollection<>(new PaperHandlers.Title(), new CraftBukkitHandlers.Title());
-    bossBar = new HandlerCollection<>(new BukkitHandlers.BossBar());
-    playSound = new HandlerCollection<>(new BukkitHandlers.PlaySound_WithCategory(), new BukkitHandlers.PlaySound_NoCategory());
+    chat = new HandlerCollection<>(
+      new ViaVersionHandlers.Chat<>(this.viaProvider),
+      new SpigotHandlers.Chat(),
+      new CraftBukkitHandlers.Chat(),
+      new BukkitHandlers.Chat());
+    actionBar = new HandlerCollection<>(
+      new ViaVersionHandlers.ActionBar<>(this.viaProvider),
+      new SpigotHandlers.ActionBar(),
+      new CraftBukkitHandlers.ActionBarModern(),
+      new CraftBukkitHandlers.ActionBar1_8thru1_11());
+    title = new HandlerCollection<>(
+      new ViaVersionHandlers.Title<>(this.viaProvider),
+      new PaperHandlers.Title(),
+      new CraftBukkitHandlers.Title());
+    bossBar = new HandlerCollection<>(
+      new ViaVersionHandlers.BossBar<>(this.viaProvider),
+      new BukkitHandlers.BossBar());
+    playSound = new HandlerCollection<>(
+      new BukkitHandlers.PlaySound_WithCategory(),
+      new ViaVersionHandlers.PlaySound<>(this.viaProvider, player -> {
+        final Location pos = player.getLocation();
+        return new ViaVersionHandlers.PlaySound.Pos(pos.getX(), pos.getY(), pos.getZ());
+      }),
+      new BukkitHandlers.PlaySound_NoCategory());
   }
 
-  @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
   public void onPlayerLogin(PlayerLoginEvent event) {
     this.add(new BukkitPlayerAudience(event.getPlayer(), chat, actionBar, title, bossBar, playSound));
   }
 
-  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
   public void onPlayerQuit(PlayerQuitEvent event) {
     this.remove(event.getPlayer().getUniqueId());
     BukkitHandlers.BossBar.handleQuit(event.getPlayer());
   }
 
-  @EventHandler
   public void onPluginLoad(PluginEnableEvent event) {
     if(event.getPlugin().getName().equals(PLUGIN_VIAVERSION)) {
       this.viaProvider.platform(); // init
     }
   }
 
-  @EventHandler
   public void onPluginDisable(PluginDisableEvent event) {
     if(event.getPlugin().getName().equals(PLUGIN_VIAVERSION)) {
       this.viaProvider.dirtyVia();
